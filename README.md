@@ -22,6 +22,10 @@ pnpm run dev
 
 本地预览使用 Sites mock auth、独立 D1/R2；生产数据库迁移会在 Site 发布时应用。
 
+### 双击启动本地工作台
+
+双击项目根目录的 `启动科研工作台.command`，脚本会在 `http://127.0.0.1:8788/` 启动仅本机可访问的工作台，并自动打开浏览器。数据保存在项目的 `.wrangler/state`，运行日志保存在 `.sites-runtime/local-workbench.log`。本地回环地址使用独立的 `local-owner` 身份，不会改变生产站点的 ChatGPT 身份认证。
+
 ## Zotero 只读同步
 
 ```bash

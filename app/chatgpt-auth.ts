@@ -22,7 +22,18 @@ export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
   const requestHeaders = await headers();
   const userId = requestHeaders.get(USER_ID_HEADER);
   const email = requestHeaders.get(USER_EMAIL_HEADER);
-  if (!userId || !email) return null;
+  if (!userId || !email) {
+    const host = requestHeaders.get("host")?.toLowerCase() ?? "";
+    if (isLoopbackHost(host)) {
+      return {
+        userId: "local-owner",
+        displayName: "本地所有者",
+        email: "local-owner@research-workbench.invalid",
+        fullName: "本地所有者",
+      };
+    }
+    return null;
+  }
 
   const encodedFullName = requestHeaders.get(USER_FULL_NAME_HEADER);
   const fullName =
@@ -37,6 +48,11 @@ export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
     email,
     fullName,
   };
+}
+
+function isLoopbackHost(host: string): boolean {
+  const hostname = host.replace(/:\d+$/, "");
+  return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]";
 }
 
 export async function requireChatGPTUser(
