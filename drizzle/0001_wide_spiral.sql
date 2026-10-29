@@ -1,0 +1,1 @@
+ALTER TABLE `papers` ADD `source_path_fingerprint` text;
