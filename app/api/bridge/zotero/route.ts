@@ -1,12 +1,38 @@
 import { allRows, oneRow, runSql, uid } from "@/lib/repository";
 import { apiError } from "@/lib/server-auth";
+import { env } from "cloudflare:workers";
 
 export const dynamic = "force-dynamic";
 
+function bridgeAuthorized(request: Request) {
+  const expected = env.WORKBENCH_BRIDGE_SECRET;
+  const supplied = request.headers.get("x-workbench-bridge-authorization")?.replace(/^Bearer\s+/i, "");
+  if (!expected || !supplied || expected.length !== supplied.length) return false;
+  let difference = 0;
+  for (let index = 0; index < expected.length; index++) {
+    difference |= expected.charCodeAt(index) ^ supplied.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+async function ensureBridgeOwner() {
+  const ownerId = env.WORKBENCH_OWNER_ID?.trim();
+  const ownerEmail = env.WORKBENCH_OWNER_EMAIL?.trim();
+  if (!ownerId || !ownerEmail) throw new Error("Workbench bridge owner is not configured");
+  await runSql(
+    `INSERT INTO owners (id,email,display_name) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,updated_at=CURRENT_TIMESTAMP`,
+    ownerId,
+    ownerEmail,
+    env.WORKBENCH_OWNER_NAME?.trim() || "Owner",
+  );
+  return ownerId;
+}
+
 export async function POST(request: Request) {
   try {
-    const owner = (await allRows<{ id: string }>(`SELECT id FROM owners ORDER BY created_at LIMIT 2`));
-    if (owner.length !== 1) return Response.json({ error: "请先以所有者身份打开一次工作台完成初始化" }, { status: 409 });
+    if (!bridgeAuthorized(request)) return Response.json({ error: "Bridge authentication required" }, { status: 401 });
+    const ownerId = await ensureBridgeOwner();
+    const owner = await allRows<{ id: string }>(`SELECT id FROM owners WHERE id=? LIMIT 1`, ownerId);
     const payload = await request.json() as { papers?: Record<string, unknown>[] };
     const papers = Array.isArray(payload.papers) ? payload.papers.slice(0, 5000) : [];
     let imported = 0;

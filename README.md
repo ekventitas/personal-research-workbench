@@ -34,7 +34,7 @@ python3 scripts/zotero_sync.py push \
   --site https://personal-research-workbench.soundbear25.chatgpt.site
 ```
 
-`push` 从 macOS Keychain 读取 `research-workbench-site-token`。脚本不会写入 Zotero，也不会把服务凭据写入文件或日志。
+`push` 从 macOS Keychain 读取 Sites 调度凭据 `research-workbench-site-token` 和应用层桥接凭据 `research-workbench-bridge-token`。两层凭据必须同时有效；脚本不会写入 Zotero，也不会把服务凭据写入文件或日志。
 
 ## Codex 工作流
 

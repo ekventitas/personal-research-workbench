@@ -82,8 +82,8 @@ def export(database: Path, hash_attachments: bool = True) -> list[dict]:
     finally:
         temp.cleanup()
 
-def keychain_token() -> str:
-    result = subprocess.run(["security", "find-generic-password", "-s", "research-workbench-site-token", "-w"], check=True, capture_output=True, text=True)
+def keychain_token(service: str) -> str:
+    result = subprocess.run(["security", "find-generic-password", "-s", service, "-w"], check=True, capture_output=True, text=True)
     return result.stdout.strip()
 
 def push(input_path: Path, site: str) -> dict:
@@ -93,7 +93,11 @@ def push(input_path: Path, site: str) -> dict:
         if path and not paper.get("sourcePathFingerprint"):
             paper["sourcePathFingerprint"] = text_fingerprint(path)
     payload = json.dumps(document, ensure_ascii=False).encode("utf-8")
-    request = urllib.request.Request(site.rstrip("/") + "/api/bridge/zotero", data=payload, method="POST", headers={"content-type": "application/json", "OAI-Sites-Authorization": f"Bearer {keychain_token()}"})
+    request = urllib.request.Request(site.rstrip("/") + "/api/bridge/zotero", data=payload, method="POST", headers={
+        "content-type": "application/json",
+        "OAI-Sites-Authorization": f"Bearer {keychain_token('research-workbench-site-token')}",
+        "X-Workbench-Bridge-Authorization": f"Bearer {keychain_token('research-workbench-bridge-token')}",
+    })
     with urllib.request.urlopen(request, timeout=120) as response: return json.loads(response.read())
 
 def main() -> None:
