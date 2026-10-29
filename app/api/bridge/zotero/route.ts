@@ -28,10 +28,27 @@ async function ensureBridgeOwner() {
   return ownerId;
 }
 
+async function ensureLocalOwner() {
+  const ownerId = "local-owner";
+  await runSql(
+    `INSERT INTO owners (id,email,display_name) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,updated_at=CURRENT_TIMESTAMP`,
+    ownerId,
+    "local-owner@research-workbench.invalid",
+    "本地所有者",
+  );
+  return ownerId;
+}
+
+function isLoopbackRequest(request: Request) {
+  const hostname = new URL(request.url).hostname.toLowerCase();
+  return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]";
+}
+
 export async function POST(request: Request) {
   try {
-    if (!bridgeAuthorized(request)) return Response.json({ error: "Bridge authentication required" }, { status: 401 });
-    const ownerId = await ensureBridgeOwner();
+    const isLoopback = isLoopbackRequest(request);
+    if (!isLoopback && !bridgeAuthorized(request)) return Response.json({ error: "Bridge authentication required" }, { status: 401 });
+    const ownerId = isLoopback ? await ensureLocalOwner() : await ensureBridgeOwner();
     const owner = await allRows<{ id: string }>(`SELECT id FROM owners WHERE id=? LIMIT 1`, ownerId);
     const payload = await request.json() as { papers?: Record<string, unknown>[] };
     const papers = Array.isArray(payload.papers) ? payload.papers.slice(0, 5000) : [];

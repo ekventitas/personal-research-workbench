@@ -6,7 +6,7 @@ WAL/SHM sidecars into a temporary directory, queries the snapshot, and removes i
 """
 from __future__ import annotations
 
-import argparse, hashlib, json, os, shutil, sqlite3, subprocess, tempfile, urllib.request
+import argparse, hashlib, json, os, shutil, sqlite3, subprocess, tempfile, urllib.parse, urllib.request
 from pathlib import Path
 
 FIELDS = {"title", "abstractNote", "publicationTitle", "date", "DOI", "url"}
@@ -93,11 +93,13 @@ def push(input_path: Path, site: str) -> dict:
         if path and not paper.get("sourcePathFingerprint"):
             paper["sourcePathFingerprint"] = text_fingerprint(path)
     payload = json.dumps(document, ensure_ascii=False).encode("utf-8")
-    request = urllib.request.Request(site.rstrip("/") + "/api/bridge/zotero", data=payload, method="POST", headers={
-        "content-type": "application/json",
-        "OAI-Sites-Authorization": f"Bearer {keychain_token('research-workbench-site-token')}",
-        "X-Workbench-Bridge-Authorization": f"Bearer {keychain_token('research-workbench-bridge-token')}",
-    })
+    headers = {"content-type": "application/json"}
+    if urllib.parse.urlparse(site).hostname not in {"127.0.0.1", "localhost", "::1"}:
+        headers.update({
+            "OAI-Sites-Authorization": f"Bearer {keychain_token('research-workbench-site-token')}",
+            "X-Workbench-Bridge-Authorization": f"Bearer {keychain_token('research-workbench-bridge-token')}",
+        })
+    request = urllib.request.Request(site.rstrip("/") + "/api/bridge/zotero", data=payload, method="POST", headers=headers)
     with urllib.request.urlopen(request, timeout=120) as response: return json.loads(response.read())
 
 def main() -> None:
